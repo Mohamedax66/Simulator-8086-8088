@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>8086 Microprocessor Simulator & Visual Architecture</title>
+    
+    <!-- FOUC Prevention & Theme Initializer -->
+    <script>
+      (function() {
+        try {
+          const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('theme') : null;
+          const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const theme = saved || (systemDark ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- TOP NAVBAR -->
+    <header class="navbar">
+        <div class="brand-section">
+            <span class="brand-title">&#9881; 8086 Microprocessor Simulator</span>
+            <span class="brand-subtitle">Visual Architecture & Smart Debugger</span>
+            
+            <!-- THEME SWITCHER BUTTON -->
+            <button id="btn-theme-toggle" class="btn btn-sm btn-icon" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">
+                <span id="theme-icon">&#9790;</span>
+            </button>
+        </div>
+
+        <div class="nav-controls">
+            <!-- CPU Mode Switch -->
+            <select id="cpu-mode-select" class="select-control" title="Switch Processor Architecture">
+                <option value="8086">Intel 8086 (16-bit Data Bus, 2 Banks, 6B Queue)</option>
+                <option value="8088">Intel 8088 (8-bit Data Bus, 1 Bank, 4B Queue)</option>
+            </select>
+
+            <!-- Sample Selector -->
+            <select id="sample-select" class="select-control" style="max-width: 280px;">
+                <option value="">-- Loading Demos --</option>
+            </select>
+
+            <!-- Debugger Controls -->
+            <button id="btn-assemble" class="btn btn-primary" title="Assemble Code into Machine Instructions">&#9889; Assemble</button>
+            <button id="btn-run" class="btn btn-success" title="Run Execution Continuously">&#9658; Run</button>
+            <button id="btn-step" class="btn btn-primary" title="Execute Single Instruction">&#8677; Step</button>
+            <button id="btn-step-back" class="btn" title="Undo / Step Back in Time">&#8676; Step Back</button>
+            <button id="btn-stop" class="btn btn-danger" disabled title="Pause Execution">&#9632; Stop</button>
+            <button id="btn-reset" class="btn" title="Reset CPU Registers and Memory">&#8635; Reset</button>
+
+            <!-- Speed Slider -->
+            <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; margin-left: 0.5rem;">
+                <span style="color: var(--text-secondary);">Speed:</span>
+                <input type="range" id="run-speed-slider" min="50" max="1000" step="50" value="300" style="width: 70px;">
+                <span id="speed-display" style="color: var(--text-primary); font-weight: 600;">300ms</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN INTERACTIVE LAYOUT -->
+    <div class="main-wrapper">
+
+        <!-- LEFT COLUMN: CODE EDITOR & ASSEMBLER -->
+        <section class="editor-pane">
+            <div class="pane-header">
+                <span class="pane-title">&#128221; 8086 Assembly Editor</span>
+                
+                <div class="editor-actions">
+                    <input type="file" id="file-input-asm" accept=".asm,.txt" style="display: none;">
+                    <button id="btn-upload-asm" class="btn btn-sm" title="Upload .asm file">&#128194; Upload</button>
+                    <button id="btn-download-asm" class="btn btn-sm" title="Download .asm file">&#128190; Save</button>
+                    <button id="btn-copy-code" class="btn btn-sm" title="Copy code to clipboard">&#128203; Copy</button>
+                    <span id="assembly-status" class="status-msg success">Ready</span>
+                </div>
+            </div>
+            <div class="editor-body">
+                <div id="line-numbers" class="line-numbers-col"></div>
+                <textarea id="code-editor-textarea" class="editor-textarea" spellcheck="false" placeholder="Write or paste 8086 Assembly code here..."></textarea>
+            </div>
+            
+            <!-- CODE DIAGNOSTICS & SMART CORRECTOR PANEL (RED FLAG INDICATOR) -->
+            <div id="diagnostics-container" class="diagnostics-container">
+                <div class="diag-empty">
+                    <span style="color: var(--accent-green); font-weight: 600;">&#10004; No syntax errors detected - Code is valid</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: TABS (ARCHITECTURE, MEMORY, PERIPHERALS, NOTES) -->
+        <main class="workspace-pane">
+            <div class="tabs-header">
+                <button class="tab-btn active" data-tab="tab-architecture">&#128397; Architecture (BIU & EU)</button>
+                <button class="tab-btn" data-tab="tab-memory">&#128190; Memory Banks & Addressing</button>
+                <button class="tab-btn" data-tab="tab-peripherals">&#128268; I/O Peripherals & Terminal</button>
+                <button class="tab-btn" data-tab="tab-notes">&#128218; Architecture Reference</button>
+            </div>
+
+            <div class="tab-content">
+                
+                <!-- TAB 1: ARCHITECTURE VISUALIZER (BIU + EU + BUSES + BANKS) -->
+                <div id="tab-architecture" class="tab-pane active">
+                    <div id="arch-visualizer-container">
+                        <!-- Rendered dynamically by ArchitectureVisualizer -->
+                    </div>
+
+                    <!-- FLAGS RATIONALE BOX -->
+                    <div id="flags-rationale-box" style="margin-top: 1rem; background: var(--bg-panel); border: 1px solid var(--border-color); padding: 0.8rem; border-radius: 8px; font-size: 0.82rem; box-shadow: var(--card-shadow);">
+                        <!-- Updated dynamically with educational explanation of flags -->
+                    </div>
+                </div>
+
+                <!-- TAB 2: MEMORY BANKS & ADDRESSING MODES -->
+                <div id="tab-memory" class="tab-pane">
+                    <div id="memory-viewer-container">
+                        <!-- Rendered dynamically by MemoryViewer -->
+                    </div>
+                </div>
+
+                <!-- TAB 3: I/O PERIPHERALS & HARDWARE -->
+                <div id="tab-peripherals" class="tab-pane">
+                    <div class="peripherals-grid">
+                        
+                        <!-- PORT 2: 8 LEDs -->
+                        <div class="peri-card">
+                            <div class="unit-title">
+                                <span>Port 2: 8-Bit Virtual LEDs</span>
+                                <span class="sub-title">Output via <code>OUT 2, AL</code></span>
+                            </div>
+                            <div class="leds-strip">
+                                <div class="led-item"><div class="led-bulb" id="led-bit-7"></div><span class="led-label">D7</span></div>
+                                <div class="led-item"><div class="led-bulb" id="led-bit-6"></div><span class="led-label">D6</span></div>
+                                <div class="led-item"><div class="led-bulb" id="led-bit-5"></div><span class="led-label">D5</span></div>
+                                <div class="led-item"><div class="led-bulb" id="led-bit-4"></div><span class="led-label">D4</span></div>
+                                <div class="led-item"><div class="led-bulb" id="led-bit-3"></div><span class="led-label">D3</span></div>
+                                <div class="led-item"><div class="led-bulb" id="led-bit-2"></div><span class="led-label">D2</span></div>
+                                <div class="led-item"><div class="led-bulb" id="led-bit-1"></div><span class="led-label">D1</span></div>
+                                <div class="led-item"><div class="led-bulb" id="led-bit-0"></div><span class="led-label">D0</span></div>
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center;">
+                                Value: <strong id="led-hex-display" style="color: var(--accent-green);">00h (0)</strong>
+                            </div>
+                        </div>
+
+                        <!-- PORT 3: 7-SEGMENT DISPLAY -->
+                        <div class="peri-card">
+                            <div class="unit-title">
+                                <span>Port 3: 7-Segment Hex Display</span>
+                                <span class="sub-title">Output via <code>OUT 3, AL</code> (Nibble 0-F)</span>
+                            </div>
+                            <div class="seven-seg-box">
+                                <svg class="seven-seg-svg" viewBox="0 0 100 160">
+                                    <!-- A (Top) -->
+                                    <polygon id="seg-a" class="seg-svg-path" points="20,10 80,10 70,22 30,22" />
+                                    <!-- B (Top Right) -->
+                                    <polygon id="seg-b" class="seg-svg-path" points="80,12 90,20 85,75 75,68 78,22" />
+                                    <!-- C (Bottom Right) -->
+                                    <polygon id="seg-c" class="seg-svg-path" points="85,85 90,140 80,148 78,138 75,92" />
+                                    <!-- D (Bottom) -->
+                                    <polygon id="seg-d" class="seg-svg-path" points="30,138 70,138 80,150 20,150" />
+                                    <!-- E (Bottom Left) -->
+                                    <polygon id="seg-e" class="seg-svg-path" points="10,140 15,85 25,92 22,138 20,148" />
+                                    <!-- F (Top Left) -->
+                                    <polygon id="seg-f" class="seg-svg-path" points="10,20 20,12 22,22 25,68 15,75" />
+                                    <!-- G (Middle) -->
+                                    <polygon id="seg-g" class="seg-svg-path" points="25,76 75,76 70,84 30,84" />
+                                </svg>
+                                <div class="seven-seg-value" id="sevenseg-char">0</div>
+                            </div>
+                        </div>
+
+                        <!-- PORT 1: INPUT SWITCHES -->
+                        <div class="peri-card">
+                            <div class="unit-title">
+                                <span>Port 1: Input Port Switches</span>
+                                <span class="sub-title">Read via <code>IN AL, 1</code></span>
+                            </div>
+                            <div style="margin-top: 1rem; display: flex; align-items: center; gap: 0.8rem;">
+                                <label style="font-size: 0.85rem; color: var(--text-primary);">Input Byte (Hex):</label>
+                                <input type="text" id="port1-input-hex" value="00" maxlength="2" style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.4rem; border-radius: 4px; width: 60px; font-family: monospace; font-size: 1rem; text-align: center;">
+                                <span style="font-size: 0.78rem; color: var(--text-secondary);">(Change value, then execute <code>IN AL, 1</code>)</span>
+                            </div>
+                        </div>
+
+                        <!-- PORT 8: TERMINAL OUTPUT -->
+                        <div class="peri-card terminal-card">
+                            <div class="unit-title">
+                                <span>Port 8 / DOS INT 21h: Text Terminal</span>
+                                <span class="sub-title">Character I/O (AH=01h, AH=02h, AH=09h)</span>
+                            </div>
+                            <div id="terminal-screen" class="terminal-screen">8086 Virtual Terminal Ready.&#10;</div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB 4: ARCHITECTURE REFERENCE & FORMULAS -->
+                <div id="tab-notes" class="tab-pane">
+                    <div class="notes-container">
+                        <h3>Intel 8086 Microprocessor Reference Guide</h3>
+                        
+                        <h4>1. Physical Address Generation (Real Mode)</h4>
+                        <p>Registers are 16-bit, so they can only address up to 64 KB ($2^{16}$). To access 1 MB of memory ($2^{20}$), segmentation is used:</p>
+                        <p><code>Physical Address = (Segment Register &times; 10H) + Offset</code></p>
+                        <ul>
+                            <li><strong>Starting Address of Segment:</strong> <code>Segment &times; 10H</code> (Ends with 0H).</li>
+                            <li><strong>Ending Address of Segment:</strong> <code>(Segment &times; 10H) + FFFFH</code> (Length = 64 KB).</li>
+                        </ul>
+
+                        <h4>2. Physical Memory Banks Organization</h4>
+                        <ul>
+                            <li><strong>Even Bank (Low Bank, 512 KB):</strong> Connected to Data Bus D0-D7. Selected by <code>A0 = 0</code>. Contains even addresses (0, 2, 4...).</li>
+                            <li><strong>Odd Bank (High Bank, 512 KB):</strong> Connected to Data Bus D8-D15. Selected by <code>BHE# = 0</code>. Contains odd addresses (1, 3, 5...).</li>
+                            <li><strong>Word Transfer:</strong> Aligned 16-bit word starting at even address takes <strong>1 clock cycle</strong> (Both banks activated). Misaligned word starting at odd address takes <strong>2 clock cycles</strong>.</li>
+                        </ul>
+
+                        <h4>3. Default Segment & Offset Pairings</h4>
+                        <ul>
+                            <li><strong>Code Segment (CS):</strong> Paired with <code>IP</code> (Instruction Pointer).</li>
+                            <li><strong>Data Segment (DS):</strong> Paired with <code>BX</code>, <code>SI</code>, <code>DI</code>, or direct displacement.</li>
+                            <li><strong>Stack Segment (SS):</strong> Paired with <code>SP</code> (Stack Pointer) or <code>BP</code> (Base Pointer).</li>
+                            <li><strong>Extra Segment (ES):</strong> Paired with <code>DI</code> (Destination Index in string instructions).</li>
+                        </ul>
+
+                        <h4>4. Status Flags (ALU Calculations)</h4>
+                        <ul>
+                            <li><strong>CF (Carry Flag):</strong> Carry out of MSB or borrow.</li>
+                            <li><strong>ZF (Zero Flag):</strong> 1 if result is zero, 0 otherwise.</li>
+                            <li><strong>SF (Sign Flag):</strong> MSB of result (1 for negative, 0 for positive).</li>
+                            <li><strong>PF (Parity Flag):</strong> 1 if low byte has EVEN count of 1-bits, 0 for odd.</li>
+                            <li><strong>AF (Auxiliary Carry):</strong> Half-carry between bit 3 and bit 4 (nibbles).</li>
+                            <li><strong>OF (Overflow Flag):</strong> Signed arithmetic overflow (adding two positives gives negative, or two negatives gives positive).</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="js/cpu/registers.js"></script>
+    <script src="js/cpu/alu.js"></script>
+    <script src="js/cpu/memory.js"></script>
+    <script src="js/cpu/biu.js"></script>
+    <script src="js/cpu/eu.js"></script>
+    <script src="js/cpu/cpu_8086.js"></script>
+    <script src="js/assembler/validator.js"></script>
+    <script src="js/assembler/parser.js"></script>
+    <script src="js/assembler/assembler.js"></script>
+    <script src="js/peripherals/io_system.js"></script>
+    <script src="js/ui/samples.js"></script>
+    <script src="js/ui/arch_visualizer.js"></script>
+    <script src="js/ui/memory_view.js"></script>
+    <script src="js/ui/editor.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+</html>
